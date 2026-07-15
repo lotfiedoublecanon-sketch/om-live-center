@@ -439,7 +439,7 @@ export async function getOmSports(): Promise<OmSportsBundle> {
     },
     squadSource: {
       name: squadResult?.source || 'OM.FR - Équipe première',
-      status: squadResult ? (squadResult.cache === 'STALE' ? 'STALE' : 'OK') : 'ERROR',
+      status: squadResult ? (squadResult.fallback || squadResult.cache === 'STALE' ? 'STALE' : 'OK') : 'ERROR',
       cache: squadResult?.cache || 'EMPTY',
       items: squad.length,
       checkedAt: squadResult?.updatedAt || new Date().toISOString(),

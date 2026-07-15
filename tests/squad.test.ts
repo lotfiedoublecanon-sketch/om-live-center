@@ -66,7 +66,7 @@ describe('official OM squad parser', () => {
     const result = await getOmSquad();
 
     expect(result.fallback).toBe(true);
-    expect(result.cache).toBe('STALE');
+    expect(result.cache).toBe('MISS');
     expect(result.value).toHaveLength(29);
     expect(result.value.every((player) => player.source.includes('instantané vérifié'))).toBe(true);
   });

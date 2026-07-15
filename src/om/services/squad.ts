@@ -9,6 +9,8 @@ const OFFICIAL_SQUAD_URL = 'https://www.om.fr/fr/equipe/hommes';
 const OFFICIAL_SOURCE = 'OM.FR - Équipe première';
 const FALLBACK_SOURCE = 'OM.FR - instantané vérifié du 15 juillet 2026';
 const MIN_VALID_SQUAD = 18;
+const SQUAD_LOAD_DEADLINE_MS = 10_000;
+const SOURCE_COOLDOWN_MS = 300_000;
 const VALID_POSITIONS = new Set(['Gardien', 'Défenseur', 'Milieu', 'Attaquant']);
 
 interface OfficialPlayer {
@@ -41,6 +43,8 @@ export interface OmSquadResult extends CacheResult<OmSquadMember[]> {
 const fallbackPlayers = fallbackJson as FallbackPlayer[];
 const fallbackBySlug = new Map(fallbackPlayers.map((player) => [player.slug, player]));
 const photoOrigins = new Map<string, string>();
+let sourceCooldownUntil = 0;
+let fallbackServed = false;
 
 function extractBalancedArray(value: string, marker: string): string | null {
   const markerIndex = value.indexOf(marker);
@@ -163,12 +167,33 @@ async function loadOfficialSquad(): Promise<OmSquadMember[]> {
 }
 
 export async function getOmSquad(): Promise<OmSquadResult> {
+  if (sourceCooldownUntil > Date.now()) {
+    const value = fallbackSquad();
+    const cache = fallbackServed ? 'HIT' : 'MISS';
+    fallbackServed = true;
+    return { value, cache, updatedAt: value[0]?.updatedAt || new Date().toISOString(), source: FALLBACK_SOURCE, fallback: true };
+  }
   try {
-    const result = await omCache.get('om-fr:squad:first-team', OM_CONFIG.sportsCacheMs, loadOfficialSquad);
+    let timer: NodeJS.Timeout | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('Délai source effectif dépassé')), SQUAD_LOAD_DEADLINE_MS);
+      timer.unref();
+    });
+    const result = await Promise.race([
+      omCache.get('om-fr:squad:first-team', OM_CONFIG.sportsCacheMs, loadOfficialSquad),
+      deadline,
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+    sourceCooldownUntil = 0;
+    fallbackServed = false;
     return { ...result, source: result.value[0]?.source || OFFICIAL_SOURCE, fallback: false };
   } catch {
+    sourceCooldownUntil = Date.now() + SOURCE_COOLDOWN_MS;
     const value = fallbackSquad();
-    return { value, cache: 'STALE', updatedAt: value[0]?.updatedAt || new Date().toISOString(), source: FALLBACK_SOURCE, fallback: true };
+    const cache = fallbackServed ? 'HIT' : 'MISS';
+    fallbackServed = true;
+    return { value, cache, updatedAt: value[0]?.updatedAt || new Date().toISOString(), source: FALLBACK_SOURCE, fallback: true };
   }
 }
 
@@ -176,4 +201,3 @@ export async function getSquadPhotoOrigin(playerId: string): Promise<string | nu
   if (!photoOrigins.has(playerId)) await getOmSquad();
   return photoOrigins.get(playerId) || null;
 }
-
