@@ -28,4 +28,25 @@ describe('StaleCache', () => {
     expect(result.cache).toBe('STALE');
     expect(result.value).toEqual(['confirmed']);
   });
+
+  it('coalesces concurrent misses into one shared upstream request', async () => {
+    const cache = new StaleCache();
+    let calls = 0;
+    const loader = async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      return ['shared'];
+    };
+
+    const [first, second, third] = await Promise.all([
+      cache.get('shared-live', 5_000, loader),
+      cache.get('shared-live', 5_000, loader),
+      cache.get('shared-live', 5_000, loader),
+    ]);
+
+    expect(calls).toBe(1);
+    expect(first.value).toEqual(['shared']);
+    expect(second.value).toEqual(['shared']);
+    expect(third.value).toEqual(['shared']);
+  });
 });

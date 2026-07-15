@@ -262,6 +262,8 @@ a { color: inherit; }
 [data-status="LIVE"] .match-status, [data-status="HALF_TIME"] .match-status { border-color: var(--live); color: #fff; background: #c21f2c; }
 .score { display: block; min-width: 150px; color: #fff; font-family: "Arial Black", Arial, sans-serif; font-size: 72px; line-height: 1; text-align: center; white-space: nowrap; }
 .minute { min-height: 34px; color: var(--om-gold); font-size: 24px; font-weight: 1000; }
+.score.is-updated { animation: live-value-update 650ms ease-out; }
+.minute.is-updated { animation: live-value-update 450ms ease-out; }
 
 .hero__footer {
   display: grid;
@@ -494,6 +496,11 @@ tr.is-om { background: rgba(0,169,232,0.12); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes live-value-update {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.06); color: var(--om-gold); }
+  100% { transform: scale(1); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }

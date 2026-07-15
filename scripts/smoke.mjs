@@ -32,6 +32,8 @@ try {
   if (!first.ok || !second.ok) throw new Error('Widget endpoint is not HTTP 200');
   if (firstPayload.service !== 'om-live-center' || !firstPayload.hero) throw new Error('Invalid widget contract');
   if (!Array.isArray(firstPayload.news) || !Array.isArray(firstPayload.fixtures)) throw new Error('Missing widget arrays');
+  if (![5, 15, 60].includes(firstPayload.refreshAfterSeconds)) throw new Error('Invalid refresh policy');
+  if (typeof firstPayload.live !== 'boolean' || !firstPayload.lastUpdatedAt) throw new Error('Missing live metadata');
   if (firstPayload.hero.status === 'SCHEDULED' && (firstPayload.hero.home?.score !== undefined || firstPayload.hero.away?.score !== undefined)) {
     throw new Error('Scheduled fixture exposes a score');
   }
@@ -44,6 +46,8 @@ try {
     news: secondPayload.news.length,
     transfers: secondPayload.transfers.length,
     fixtures: secondPayload.fixtures.length,
+    friendlies: secondPayload.fixtures.filter((match) => match.competitionType === 'FRIENDLY').length,
+    refreshAfterSeconds: secondPayload.refreshAfterSeconds,
     standings: secondPayload.standings.length,
   }, null, 2));
 } finally {

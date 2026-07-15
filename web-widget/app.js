@@ -7,6 +7,8 @@ const state = {
   payload: null,
   timer: null,
   loading: false,
+  refreshing: false,
+  controller: null,
   deferredInstall: null,
 };
 
@@ -127,7 +129,10 @@ function renderHero(hero = {}) {
   $('#competition').textContent = hero.competition || 'Olympique de Marseille';
   $('#kickoff').textContent = dateTime(hero.kickoff);
   $('#matchStatus').textContent = statusLabel(status);
-  $('#minute').textContent = ['LIVE', 'HALF_TIME'].includes(status) ? hero.minute || '' : '';
+  const minute = $('#minute');
+  const nextMinute = ['LIVE', 'HALF_TIME'].includes(status) ? hero.minute || '' : '';
+  const minuteChanged = minute.textContent !== nextMinute;
+  minute.textContent = nextMinute;
   $('#stadium').textContent = hero.stadium || 'À confirmer';
   $('#currentEvent').textContent = hero.event || 'Aucune action confirmée';
   setTeam('home', hero.home);
@@ -136,7 +141,20 @@ function renderHero(hero = {}) {
   const hasScore = ['LIVE', 'HALF_TIME', 'FINISHED'].includes(status)
     && Number.isFinite(hero.home?.score)
     && Number.isFinite(hero.away?.score);
-  $('#score').textContent = hasScore ? `${hero.home.score} - ${hero.away.score}` : status === 'SCHEDULED' ? 'VS' : '—';
+  const score = $('#score');
+  const nextScore = hasScore ? `${hero.home.score} - ${hero.away.score}` : status === 'SCHEDULED' ? 'VS' : '—';
+  const scoreChanged = score.textContent !== nextScore;
+  score.textContent = nextScore;
+  if (state.payload && scoreChanged) {
+    score.classList.remove('is-updated');
+    requestAnimationFrame(() => score.classList.add('is-updated'));
+    window.setTimeout(() => score.classList.remove('is-updated'), 700);
+  }
+  if (state.payload && minuteChanged) {
+    minute.classList.remove('is-updated');
+    requestAnimationFrame(() => minute.classList.add('is-updated'));
+    window.setTimeout(() => minute.classList.remove('is-updated'), 500);
+  }
 
   const link = $('#matchSource');
   const sourceUrl = safeHttpUrl(hero.sourceUrl);
@@ -424,6 +442,67 @@ function render(payload) {
   notifyOnMatchChange(payload.hero);
 }
 
+function signature(value) {
+  try { return JSON.stringify(value); } catch { return ''; }
+}
+
+function visibleMatch(match = {}) {
+  return {
+    id: match.id,
+    live: match.live,
+    status: match.status,
+    minute: match.minute,
+    competition: match.competition,
+    competitionType: match.competitionType,
+    competitionLabel: match.competitionLabel,
+    kickoff: match.kickoff,
+    home: match.home,
+    away: match.away,
+    stadium: match.stadium,
+    event: match.event,
+    source: match.source,
+    sourceUrl: match.sourceUrl,
+    verified: match.verified,
+  };
+}
+
+function renderChanged(payload) {
+  const previous = state.payload;
+  if (!previous) {
+    render(payload);
+    return;
+  }
+
+  const heroChanged = signature(visibleMatch(previous.hero)) !== signature(visibleMatch(payload.hero));
+  if (heroChanged) {
+    renderHero(payload.hero);
+    notifyOnMatchChange(payload.hero);
+  }
+  if (signature(previous.pitch) !== signature(payload.pitch)) renderPitch(payload.pitch);
+  if (signature(previous.timeline) !== signature(payload.timeline)) renderTimeline(payload.timeline);
+  if (signature(previous.news) !== signature(payload.news)) renderNews(payload.news);
+  if (signature(previous.transfers) !== signature(payload.transfers)) renderTransfers(payload.transfers);
+
+  const previousFixtures = array(previous.fixtures).map(visibleMatch);
+  const nextFixtures = array(payload.fixtures).map(visibleMatch);
+  if (signature(previousFixtures) !== signature(nextFixtures)) {
+    renderMatchList('#fixtures', payload.fixtures, 'Aucun prochain match');
+    $('#fixtureCount').textContent = `${array(payload.fixtures).length} match${array(payload.fixtures).length > 1 ? 's' : ''}`;
+  }
+
+  const previousResults = array(previous.results).map(visibleMatch);
+  const nextResults = array(payload.results).map(visibleMatch);
+  if (signature(previousResults) !== signature(nextResults)) {
+    renderMatchList('#results', payload.results, 'Aucun résultat disponible');
+  }
+  if (signature(previous.standings) !== signature(payload.standings)) renderStandings(payload.standings);
+  if (signature(previous.squad) !== signature(payload.squad)) renderSquad(payload.squad);
+  if (signature(previous.sources) !== signature(payload.sources) || previous.generatedAt !== payload.generatedAt) {
+    renderSources(payload.sources, payload.generatedAt);
+  }
+  state.payload = payload;
+}
+
 function readStoredPayload() {
   try { return JSON.parse(localStorage.getItem(STORAGE_PAYLOAD) || 'null'); } catch { return null; }
 }
@@ -432,8 +511,8 @@ function storePayload(payload) {
   try { localStorage.setItem(STORAGE_PAYLOAD, JSON.stringify(payload)); } catch { /* storage can be disabled */ }
 }
 
-async function fetchPayload(url) {
-  const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(8_000) });
+async function fetchPayload(url, signal) {
+  const response = await fetch(url, { cache: 'no-store', signal });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const payload = await response.json();
   if (!payload || typeof payload !== 'object' || !payload.hero) throw new Error('Format serveur invalide');
@@ -441,20 +520,25 @@ async function fetchPayload(url) {
 }
 
 async function refresh({ manual = false } = {}) {
-  if (state.loading) return;
-  setLoading(true);
+  if (state.refreshing) return;
+  state.refreshing = true;
+  const showLoading = manual || !state.payload;
+  if (showLoading) setLoading(true);
   window.clearTimeout(state.timer);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8_000);
+  state.controller = controller;
   try {
-    const payload = await fetchPayload(API_URL);
+    const payload = await fetchPayload(API_URL, controller.signal);
     storePayload(payload);
-    render(payload);
+    renderChanged(payload);
     const stale = array(payload.sources).some((source) => source.status === 'STALE');
     setConnection(stale ? 'loading' : 'online', stale ? 'Cache serveur' : 'Serveur connecté');
     if (manual) showToast('Données actualisées');
   } catch {
     const stored = readStoredPayload();
     if (stored?.hero) {
-      render(stored);
+      if (!state.payload) render(stored);
       setConnection('offline', 'Dernières données');
       if (manual) showToast('Serveur indisponible, dernières données affichées');
     } else {
@@ -468,8 +552,11 @@ async function refresh({ manual = false } = {}) {
       if (manual) showToast('Serveur temporairement indisponible');
     }
   } finally {
-    setLoading(false);
-    const seconds = Math.max(30, Math.min(120, Number(state.payload?.refreshAfterSeconds) || 60));
+    window.clearTimeout(timeout);
+    state.controller = null;
+    state.refreshing = false;
+    if (showLoading) setLoading(false);
+    const seconds = Math.max(5, Math.min(120, Number(state.payload?.refreshAfterSeconds) || 60));
     state.timer = window.setTimeout(() => refresh(), seconds * 1_000);
   }
 }

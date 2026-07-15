@@ -1,6 +1,7 @@
 import { OM_CONFIG } from '../config.js';
 import { omCache } from '../cache/stale-cache.js';
 import { fetchJson, safeUrl } from '../services/http.js';
+import { getOfficialFriendlies } from '../services/friendlies.js';
 import { getOmSquadSnapshot, refreshOmSquadInBackground } from '../services/squad.js';
 import type {
   CacheState,
@@ -59,6 +60,7 @@ interface EspnCompetition {
 interface EspnEvent {
   id?: string;
   date?: string;
+  lastUpdated?: string;
   name?: string;
   status?: EspnStatus;
   competitions?: EspnCompetition[];
@@ -120,6 +122,7 @@ export interface OmSportsBundle {
   standings: OmStandingRow[];
   squad: OmSquadMember[];
   source: SourceState;
+  friendliesSource: SourceState;
   squadSource: SourceState;
 }
 
@@ -192,15 +195,21 @@ export function mapEspnEvent(
   const status = statusFromEspn(competition.status || event.status);
   const includeScore = status === 'LIVE' || status === 'HALF_TIME' || status === 'FINISHED';
   const detail = competition.status?.type?.detail || event.status?.type?.detail;
+  const friendly = providerCompetition.toLowerCase() === OM_CONFIG.friendlyCompetition
+    || /\b(friendly|amical|preparation|préparation)\b/i.test(`${leagueName} ${competition.altGameNote || ''}`);
+  const competitionLabel = friendly ? 'Match amical' : competition.altGameNote || leagueName;
 
   return {
     id: event.id,
+    live: status === 'LIVE' || status === 'HALF_TIME',
     status,
     minute:
       status === 'LIVE' || status === 'HALF_TIME'
         ? competition.status?.displayClock || event.status?.displayClock
         : undefined,
-    competition: competition.altGameNote || leagueName,
+    competition: competitionLabel,
+    competitionType: friendly ? 'FRIENDLY' : 'OFFICIAL',
+    competitionLabel,
     kickoff: event.date,
     home: teamFromCompetitor(home, includeScore),
     away: teamFromCompetitor(away, includeScore),
@@ -216,6 +225,10 @@ export function mapEspnEvent(
       safeUrl(event.links?.find((link) => link.rel?.includes('summary'))?.href) ||
       `https://www.espn.com/soccer/match/_/gameId/${event.id}`,
     providerCompetition,
+    lastUpdatedAt:
+      event.lastUpdated && Number.isFinite(Date.parse(event.lastUpdated))
+        ? new Date(event.lastUpdated).toISOString()
+        : new Date().toISOString(),
     verified: true,
   };
 }
@@ -243,8 +256,9 @@ async function competitionEvents(
 }
 
 async function eventsForAllCompetitions(dates: string, ttlMs: number) {
+  const leagues = [...new Set([...OM_CONFIG.competitions, OM_CONFIG.friendlyCompetition])];
   const settled = await Promise.allSettled(
-    OM_CONFIG.competitions.map((league) => competitionEvents(league, dates, ttlMs)),
+    leagues.map((league) => competitionEvents(league, dates, ttlMs)),
   );
   const successful = settled
     .filter((item): item is PromiseFulfilledResult<Awaited<ReturnType<typeof competitionEvents>>> =>
@@ -259,6 +273,56 @@ async function eventsForAllCompetitions(dates: string, ttlMs: number) {
     updatedAt: successful.map((item) => item.updatedAt).sort().at(-1) || new Date().toISOString(),
     errors: settled.filter((item) => item.status === 'rejected').length,
   };
+}
+
+const normalizedTeamName = (value: string): string => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/\b(olympique de|football club|fc)\b/g, '')
+  .replace(/[^a-z0-9]/g, '');
+
+function matchIdentity(match: OmMatch): string {
+  const teams = [normalizedTeamName(match.home.name), normalizedTeamName(match.away.name)].sort().join(':');
+  return `${match.kickoff.slice(0, 10)}:${teams}`;
+}
+
+function sourceRank(match: OmMatch): number {
+  if (match.live) return 50;
+  if (match.status === 'FINISHED') return 40;
+  if (match.source.startsWith('OM.FR')) return 30;
+  return 20;
+}
+
+export function deduplicateMatches(matches: OmMatch[]): OmMatch[] {
+  const byIdentity = new Map<string, OmMatch>();
+  for (const match of matches) {
+    const key = matchIdentity(match);
+    const current = byIdentity.get(key);
+    if (!current) {
+      byIdentity.set(key, match);
+      continue;
+    }
+    const preferred = sourceRank(match) > sourceRank(current) ? match : current;
+    const supporting = preferred === match ? current : match;
+    byIdentity.set(key, {
+      ...supporting,
+      ...preferred,
+      competition: preferred.competitionType === 'FRIENDLY' || supporting.competitionType === 'FRIENDLY'
+        ? preferred.competitionLabel || supporting.competitionLabel || 'Match amical'
+        : preferred.competition,
+      competitionType:
+        preferred.competitionType === 'FRIENDLY' || supporting.competitionType === 'FRIENDLY'
+          ? 'FRIENDLY'
+          : 'OFFICIAL',
+      competitionLabel:
+        preferred.competitionType === 'FRIENDLY' || supporting.competitionType === 'FRIENDLY'
+          ? preferred.competitionLabel || supporting.competitionLabel || 'Match amical'
+          : preferred.competitionLabel,
+      verified: preferred.verified || supporting.verified,
+    });
+  }
+  return [...byIdentity.values()].sort((left, right) => Date.parse(left.kickoff) - Date.parse(right.kickoff));
 }
 
 async function getStandings() {
@@ -352,13 +416,17 @@ async function getTimeline(match: OmMatch): Promise<OmTimelineEvent[]> {
 function placeholderHero(): OmMatch {
   return {
     id: 'om-no-match',
+    live: false,
     status: 'UNAVAILABLE',
     competition: 'Olympique de Marseille',
+    competitionType: 'OFFICIAL',
+    competitionLabel: 'Olympique de Marseille',
     kickoff: new Date().toISOString(),
     home: { code: 'OM', name: 'Olympique de Marseille', shortName: 'Marseille' },
     away: { code: '---', name: 'Prochain adversaire a confirmer', shortName: 'A confirmer' },
     event: 'Aucun match OM confirmé pour le moment',
     source: 'Aucune source active',
+    lastUpdatedAt: new Date().toISOString(),
     verified: false,
   };
 }
@@ -372,17 +440,20 @@ function asFixture(match: OmMatch): OmFixture {
 
 export async function getOmSports(): Promise<OmSportsBundle> {
   const now = Date.now();
-  const [liveWindow, season, standingsResult] = await Promise.all([
+  const [liveWindow, season, standingsResult, officialFriendliesResult] = await Promise.all([
     eventsForAllCompetitions(currentWindow(), OM_CONFIG.liveCacheMs),
     eventsForAllCompetitions(currentSeasonWindow(), OM_CONFIG.sportsCacheMs),
     getStandings().catch(() => null),
+    getOfficialFriendlies().catch(() => null),
   ]);
   const squadResult = getOmSquadSnapshot();
   refreshOmSquadInBackground();
 
-  const allById = new Map<string, OmMatch>();
-  [...season.events, ...liveWindow.events].forEach((match) => allById.set(match.id, match));
-  const all = [...allById.values()].sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  const all = deduplicateMatches([
+    ...season.events,
+    ...(officialFriendliesResult?.events || []),
+    ...liveWindow.events,
+  ]);
   const live = all.find((match) => match.status === 'LIVE' || match.status === 'HALF_TIME');
   const next = all.find((match) => match.status === 'SCHEDULED' && Date.parse(match.kickoff) >= now);
   const last = [...all]
@@ -437,6 +508,16 @@ export async function getOmSports(): Promise<OmSportsBundle> {
         .sort()
         .at(-1) || new Date().toISOString(),
       message: sourceErrors ? `${sourceErrors} competition(s) indisponible(s), autres sources conservees` : undefined,
+    },
+    friendliesSource: {
+      name: 'OM.FR officiel + ESPN Club Friendly',
+      status: officialFriendliesResult
+        ? officialFriendliesResult.cache === 'STALE' ? 'STALE' : 'OK'
+        : all.some((match) => match.competitionType === 'FRIENDLY') ? 'OK' : 'ERROR',
+      cache: officialFriendliesResult?.cache || 'EMPTY',
+      items: all.filter((match) => match.competitionType === 'FRIENDLY').length,
+      checkedAt: officialFriendliesResult?.updatedAt || liveWindow.updatedAt,
+      message: officialFriendliesResult ? undefined : 'Calendrier officiel indisponible, ESPN Club Friendly conserve',
     },
     squadSource: {
       name: squadResult?.source || 'OM.FR - Équipe première',

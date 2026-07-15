@@ -32,9 +32,12 @@ export interface OmTeam {
 
 export interface OmMatch {
   id: string;
+  live: boolean;
   status: MatchStatus;
   minute?: string;
   competition: string;
+  competitionType: 'FRIENDLY' | 'OFFICIAL';
+  competitionLabel: string;
   kickoff: string;
   home: OmTeam;
   away: OmTeam;
@@ -43,6 +46,7 @@ export interface OmMatch {
   source: string;
   sourceUrl?: string;
   providerCompetition?: string;
+  lastUpdatedAt: string;
   verified: boolean;
 }
 
@@ -145,6 +149,8 @@ export interface OmWidgetPayload {
   service: 'om-live-center';
   version: string;
   generatedAt: string;
+  live: boolean;
+  lastUpdatedAt: string;
   hero: OmMatch;
   pitch: OmPitch;
   timeline: OmTimelineEvent[];

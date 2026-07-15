@@ -16,13 +16,17 @@ const emptySource = (name: string, message: string): SourceState => ({
 const emptySports = (): OmSportsBundle => ({
   hero: {
     id: 'om-source-unavailable',
+    live: false,
     status: 'UNAVAILABLE',
     competition: 'Olympique de Marseille',
+    competitionType: 'OFFICIAL',
+    competitionLabel: 'Olympique de Marseille',
     kickoff: new Date().toISOString(),
     home: { code: 'OM', name: 'Olympique de Marseille', shortName: 'Marseille' },
     away: { code: '---', name: 'Adversaire a confirmer', shortName: 'A confirmer' },
     event: 'Source sportive temporairement indisponible',
     source: 'Derniere donnee indisponible',
+    lastUpdatedAt: new Date().toISOString(),
     verified: false,
   },
   pitch: {
@@ -36,8 +40,27 @@ const emptySports = (): OmSportsBundle => ({
   standings: [],
   squad: [],
   source: emptySource('ESPN Football Data', 'Source sportive temporairement indisponible'),
+  friendliesSource: emptySource('OM.FR officiel + ESPN Club Friendly', 'Calendrier amical temporairement indisponible'),
   squadSource: emptySource('OM.FR - Équipe première', 'Effectif temporairement indisponible'),
 });
+
+export function refreshAfterSecondsForMatch(
+  match: OmSportsBundle['hero'],
+  now = Date.now(),
+): 5 | 15 | 60 {
+  if (match.status === 'LIVE' || match.status === 'HALF_TIME' || match.live) return 5;
+  const kickoff = Date.parse(match.kickoff);
+  const distance = kickoff - now;
+  if (
+    match.status === 'SCHEDULED'
+    && Number.isFinite(kickoff)
+    && distance <= 15 * 60_000
+    && distance >= -120 * 60_000
+  ) {
+    return 15;
+  }
+  return 60;
+}
 
 const failedReason = (reason: unknown): string => {
   if (reason instanceof Error && reason.message) return reason.message;
@@ -56,6 +79,7 @@ export async function omWidgetApi(_req: Request, res: Response): Promise<Respons
   const transfers: OmTransferItem[] = transferResult.status === 'fulfilled' ? transferResult.value.items : [];
   const sources: SourceState[] = [
     sports.source,
+    sports.friendliesSource,
     sports.squadSource,
     newsResult.status === 'fulfilled'
       ? newsResult.value.source
@@ -64,10 +88,14 @@ export async function omWidgetApi(_req: Request, res: Response): Promise<Respons
       ? transferResult.value.source
       : emptySource('Flux RSS mercato', failedReason(transferResult.reason)),
   ];
+  const generatedAt = new Date().toISOString();
+  const refreshAfterSeconds = refreshAfterSecondsForMatch(sports.hero);
   const payload: OmWidgetPayload = {
     service: 'om-live-center',
     version: '1.0.0',
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    live: sports.hero.live,
+    lastUpdatedAt: sports.hero.lastUpdatedAt || generatedAt,
     hero: sports.hero,
     pitch: sports.pitch,
     timeline: sports.timeline,
@@ -78,8 +106,7 @@ export async function omWidgetApi(_req: Request, res: Response): Promise<Respons
     standings: sports.standings,
     squad: sports.squad,
     sources,
-    refreshAfterSeconds:
-      sports.hero.status === 'LIVE' || sports.hero.status === 'HALF_TIME' ? 30 : 60,
+    refreshAfterSeconds,
   };
   const cache = sources.some((source) => source.cache === 'STALE')
     ? 'STALE'
@@ -90,7 +117,11 @@ export async function omWidgetApi(_req: Request, res: Response): Promise<Respons
         : 'MIXED';
 
   res.setHeader('x-cache', cache);
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-if-error=600');
+  res.setHeader('x-refresh-after', String(refreshAfterSeconds));
+  res.setHeader(
+    'Cache-Control',
+    `public, max-age=0, s-maxage=${refreshAfterSeconds}, stale-if-error=600`,
+  );
   return res.status(200).json(payload);
 }
 
