@@ -1,0 +1,4 @@
+export type OmNewsItem={id:string;title:string;source:string;url?:string;publishedAt?:string;tag:'Actu'|'Mercato'|'Conférence'|'Blessure'|'Officiel'|'Rumeur'};
+export type OmTransferItem={id:string;player:string;direction:'arrival'|'departure'|'extension'|'unknown';status:'OFFICIEL'|'RUMEUR'|'SURVEILLÉ';reliability:number;source:string;url?:string};
+export type OmLiveMatch={status:'LIVE'|'SCHEDULED'|'FINISHED'|'POSTPONED';minute?:string;competition?:string;home:{code:string;name:string;score?:number};away:{code:string;name:string;score?:number};stadium?:string;events:Array<{minute:string;type:string;team?:string;text:string}>};
+export type OmLivePayload={hero:OmLiveMatch;news:OmNewsItem[];transfers:OmTransferItem[];fixtures:Array<{date:string;opponent:string;competition:string;homeAway:string}>};

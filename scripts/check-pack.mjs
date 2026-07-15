@@ -1,0 +1,1 @@
+import fs from 'node:fs';const files=['web-widget/index.html','web-widget/style.css','web-widget/app.js','web-widget/assets/logo-om-live.svg','src/om/routes/omWidgetApi.ts','docs/MISSION_CODEX_OM_LIVE_CENTER.md'];let ok=true;for(const f of files){if(!fs.existsSync(f)){console.error('missing',f);ok=false}}process.exit(ok?0:1);
