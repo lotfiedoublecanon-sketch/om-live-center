@@ -45,6 +45,8 @@ const fallbackBySlug = new Map(fallbackPlayers.map((player) => [player.slug, pla
 const photoOrigins = new Map<string, string>();
 let sourceCooldownUntil = 0;
 let fallbackServed = false;
+let lastOfficialResult: OmSquadResult | null = null;
+let backgroundRefresh: Promise<void> | null = null;
 
 function extractBalancedArray(value: string, marker: string): string | null {
   const markerIndex = value.indexOf(marker);
@@ -187,7 +189,9 @@ export async function getOmSquad(): Promise<OmSquadResult> {
     });
     sourceCooldownUntil = 0;
     fallbackServed = false;
-    return { ...result, source: result.value[0]?.source || OFFICIAL_SOURCE, fallback: false };
+    const normalized = { ...result, source: result.value[0]?.source || OFFICIAL_SOURCE, fallback: false };
+    lastOfficialResult = normalized;
+    return normalized;
   } catch {
     sourceCooldownUntil = Date.now() + SOURCE_COOLDOWN_MS;
     const value = fallbackSquad();
@@ -195,6 +199,24 @@ export async function getOmSquad(): Promise<OmSquadResult> {
     fallbackServed = true;
     return { value, cache, updatedAt: value[0]?.updatedAt || new Date().toISOString(), source: FALLBACK_SOURCE, fallback: true };
   }
+}
+
+export function getOmSquadSnapshot(): OmSquadResult {
+  if (lastOfficialResult) return { ...lastOfficialResult, cache: 'HIT' };
+  const value = fallbackSquad();
+  const cache = fallbackServed ? 'HIT' : 'MISS';
+  fallbackServed = true;
+  return { value, cache, updatedAt: value[0]?.updatedAt || new Date().toISOString(), source: FALLBACK_SOURCE, fallback: true };
+}
+
+export function refreshOmSquadInBackground(): void {
+  if (backgroundRefresh) return;
+  backgroundRefresh = getOmSquad()
+    .then(() => undefined)
+    .catch(() => undefined)
+    .finally(() => {
+      backgroundRefresh = null;
+    });
 }
 
 export async function getSquadPhotoOrigin(playerId: string): Promise<string | null> {

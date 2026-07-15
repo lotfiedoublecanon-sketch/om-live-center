@@ -1,7 +1,7 @@
 import { OM_CONFIG } from '../config.js';
 import { omCache } from '../cache/stale-cache.js';
 import { fetchJson, safeUrl } from '../services/http.js';
-import { getOmSquad } from '../services/squad.js';
+import { getOmSquadSnapshot, refreshOmSquadInBackground } from '../services/squad.js';
 import type {
   CacheState,
   MatchStatus,
@@ -372,12 +372,13 @@ function asFixture(match: OmMatch): OmFixture {
 
 export async function getOmSports(): Promise<OmSportsBundle> {
   const now = Date.now();
-  const [liveWindow, season, standingsResult, squadResult] = await Promise.all([
+  const [liveWindow, season, standingsResult] = await Promise.all([
     eventsForAllCompetitions(currentWindow(), OM_CONFIG.liveCacheMs),
     eventsForAllCompetitions(currentSeasonWindow(), OM_CONFIG.sportsCacheMs),
     getStandings().catch(() => null),
-    getOmSquad().catch(() => null),
   ]);
+  const squadResult = getOmSquadSnapshot();
+  refreshOmSquadInBackground();
 
   const allById = new Map<string, OmMatch>();
   [...season.events, ...liveWindow.events].forEach((match) => allById.set(match.id, match));
