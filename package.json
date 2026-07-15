@@ -1,12 +1,32 @@
 {
-  "name": "om-live-center-master-pack",
-  "version": "0.2.0",
+  "name": "om-live-center",
+  "version": "1.0.0",
   "private": true,
+  "description": "OM Live Center - live, actualites, mercato et donnees de match sourcees",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "serve:static": "npx http-server web-widget -p 5173 -c-1",
-    "check": "node scripts/check-pack.mjs"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "check": "node scripts/check-pack.mjs && npm run build && npm test",
+    "test": "vitest run",
+    "smoke": "node scripts/smoke.mjs",
+    "serve:static": "http-server web-widget -p 5173 -c-1"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "fast-xml-parser": "^5.2.5"
   },
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.30",
+    "http-server": "^14.1.1",
+    "supertest": "^7.1.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }

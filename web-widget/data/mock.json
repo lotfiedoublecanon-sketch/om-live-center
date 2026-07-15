@@ -1,142 +1,39 @@
 {
+  "service": "om-live-center",
+  "version": "1.0.0",
+  "generatedAt": "2026-07-15T00:00:00.000Z",
   "hero": {
-    "competition": "Ligue 1",
-    "status": "LIVE",
-    "minute": "64'",
-    "home": {
-      "code": "OM",
-      "name": "Olympique de Marseille",
-      "short": "OM",
-      "score": 2
-    },
-    "away": {
-      "code": "OL",
-      "name": "Olympique Lyonnais",
-      "short": "OL",
-      "score": 1
-    },
-    "stadium": "Orange Vélodrome",
-    "kickoff": "Aujourd’hui 21:00",
-    "event": "OM pousse fort côté droit"
+    "id": "offline",
+    "status": "UNAVAILABLE",
+    "competition": "Olympique de Marseille",
+    "kickoff": "2026-07-15T00:00:00.000Z",
+    "home": { "code": "OM", "name": "Olympique de Marseille", "shortName": "Marseille" },
+    "away": { "code": "---", "name": "Adversaire a confirmer", "shortName": "A confirmer" },
+    "event": "Connexion au serveur requise pour afficher des donnees confirmees",
+    "source": "Mode hors ligne",
+    "verified": false
   },
   "pitch": {
-    "ball": {
-      "x": 68,
-      "y": 42
-    },
-    "path": [
-      {
-        "x": 38,
-        "y": 72
-      },
-      {
-        "x": 52,
-        "y": 58
-      },
-      {
-        "x": 68,
-        "y": 42
-      }
-    ],
-    "players": [
-      {
-        "name": "Aubameyang",
-        "team": "OM",
-        "x": 70,
-        "y": 38
-      },
-      {
-        "name": "Greenwood",
-        "team": "OM",
-        "x": 64,
-        "y": 56
-      },
-      {
-        "name": "Højbjerg",
-        "team": "OM",
-        "x": 48,
-        "y": 62
-      },
-      {
-        "name": "Balerdi",
-        "team": "OM",
-        "x": 32,
-        "y": 50
-      },
-      {
-        "name": "Gardien",
-        "team": "ADV",
-        "x": 88,
-        "y": 50
-      },
-      {
-        "name": "Défenseur",
-        "team": "ADV",
-        "x": 78,
-        "y": 54
-      }
-    ]
+    "available": false,
+    "message": "Aucune position verifiee disponible hors ligne",
+    "players": []
   },
-  "timeline": [
+  "timeline": [],
+  "news": [],
+  "transfers": [],
+  "fixtures": [],
+  "results": [],
+  "standings": [],
+  "squad": [],
+  "sources": [
     {
-      "minute": "12'",
-      "type": "goal",
-      "team": "OM",
-      "text": "But OM sur centre côté droit."
-    },
-    {
-      "minute": "38'",
-      "type": "yellow",
-      "team": "ADV",
-      "text": "Carton jaune après faute tactique."
-    },
-    {
-      "minute": "64'",
-      "type": "attack",
-      "team": "OM",
-      "text": "Ballon dans la surface, grosse occasion."
+      "name": "Serveur OM Live Center",
+      "status": "ERROR",
+      "cache": "EMPTY",
+      "items": 0,
+      "checkedAt": "2026-07-15T00:00:00.000Z",
+      "message": "Connexion indisponible"
     }
   ],
-  "news": [
-    {
-      "title": "Avant-match : l’OM veut confirmer au Vélodrome",
-      "source": "Source à brancher",
-      "tag": "Actu",
-      "time": "12 min"
-    },
-    {
-      "title": "Conférence : le coach insiste sur l’intensité",
-      "source": "Source à brancher",
-      "tag": "Conférence",
-      "time": "1 h"
-    }
-  ],
-  "transfers": [
-    {
-      "name": "Cible offensive",
-      "status": "RUMEUR",
-      "reliability": 62,
-      "source": "à sourcer"
-    },
-    {
-      "name": "Départ possible",
-      "status": "SURVEILLÉ",
-      "reliability": 45,
-      "source": "à sourcer"
-    }
-  ],
-  "fixtures": [
-    {
-      "date": "Samedi",
-      "opponent": "Nice",
-      "homeAway": "Domicile",
-      "competition": "Ligue 1"
-    },
-    {
-      "date": "Mercredi",
-      "opponent": "Ajax",
-      "homeAway": "Extérieur",
-      "competition": "Europe"
-    }
-  ]
+  "refreshAfterSeconds": 60
 }

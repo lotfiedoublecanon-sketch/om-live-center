@@ -1,1 +1,210 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#00a9e8"><title>OM Live Center</title><link rel="manifest" href="./manifest.json"><link rel="icon" href="./assets/logo-om-live.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css"></head><body><header class="topbar"><img src="./assets/logo-om-live.svg" alt="" class="logo"><div class="brand"><strong>OM LIVE CENTER</strong><span>Actu • Mercato • Direct</span></div><button class="icon-btn" id="refreshBtn" aria-label="Rafraîchir">↻</button></header><nav class="tabs" aria-label="Sections"><button class="active">Live</button><button>Actus</button><button>Mercato</button><button>Calendrier</button><button>Classement</button><button>Effectif</button></nav><main class="layout"><section class="hero-card"><div class="hero-bg"></div><div class="hero-head"><span class="badge" id="competition">Ligue 1</span><span id="kickoff">Aujourd’hui 21:00</span></div><div class="scoreline"><article class="team-card home"><span class="crest">OM</span><small>OM</small><strong>Marseille</strong></article><div class="score-center"><span class="status" id="status">EN DIRECT</span><div class="score" id="score">2 - 1</div><span class="minute" id="minute">64'</span></div><article class="team-card away"><span class="crest">ADV</span><small>OL</small><strong>Lyon</strong></article></div><div class="info-row"><span id="stadium">Orange Vélodrome</span><span id="event">OM pousse fort côté droit</span></div></section><section class="pitch-card"><div class="section-title"><span>Terrain live</span><small>mini-stade + ballon connecté</small></div><div class="pitch" id="pitch"><svg viewBox="0 0 100 100" preserveAspectRatio="none" class="pitch-lines"><rect x="3" y="6" width="94" height="88" rx="2"></rect><line x1="50" y1="6" x2="50" y2="94"></line><circle cx="50" cy="50" r="11"></circle><rect x="3" y="30" width="16" height="40"></rect><rect x="81" y="30" width="16" height="40"></rect><polyline id="ballPath" points="" class="ball-path"></polyline></svg><div id="playersLayer"></div><div id="ball" class="ball">⚽</div></div></section><section class="panel"><div class="section-title"><span>Commentaires live</span><small>actions</small></div><div id="timeline" class="timeline"></div></section><section class="panel"><div class="section-title"><span>Actus OM</span><small>source visible</small></div><div id="news" class="cards"></div></section><section class="panel"><div class="section-title"><span>Mercato</span><small>officiel / rumeur</small></div><div id="transfers" class="cards"></div></section><section class="panel"><div class="section-title"><span>Prochains matchs</span><small>calendrier</small></div><div id="fixtures" class="cards"></div></section></main><script src="./app.js" defer></script></body></html>
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#06142d">
+    <meta name="description" content="OM Live Center : matchs, actualites, mercato et calendrier sources.">
+    <title>OM Live Center</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./assets/logo-om-live.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./style.css?v=om-live-v1">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#live" aria-label="OM Live Center, accueil">
+        <img src="./assets/logo-om-live.svg" alt="" class="brand__logo" width="48" height="48">
+        <span class="brand__copy">
+          <strong>OM Live Center</strong>
+          <small>Marseille, en temps réel</small>
+        </span>
+      </a>
+      <div class="topbar__actions">
+        <span class="connection" id="connectionState" data-state="loading">
+          <span class="connection__dot" aria-hidden="true"></span>
+          <span id="connectionLabel">Connexion</span>
+        </span>
+        <button class="icon-button" id="installBtn" type="button" title="Installer l’application" hidden>
+          <span aria-hidden="true">↓</span><span class="sr-only">Installer l’application</span>
+        </button>
+        <button class="icon-button" id="notificationBtn" type="button" title="Activer les notifications">
+          <span aria-hidden="true">♢</span><span class="sr-only">Activer les notifications</span>
+        </button>
+        <button class="icon-button" id="refreshBtn" type="button" title="Rafraîchir">
+          <span aria-hidden="true">↻</span><span class="sr-only">Rafraîchir</span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Sections principales">
+      <button class="tabs__button is-active" type="button" data-tab="live">Live</button>
+      <button class="tabs__button" type="button" data-tab="news">Actus</button>
+      <button class="tabs__button" type="button" data-tab="transfers">Mercato</button>
+      <button class="tabs__button" type="button" data-tab="calendar">Calendrier</button>
+      <button class="tabs__button" type="button" data-tab="standings">Classement</button>
+      <button class="tabs__button" type="button" data-tab="squad">Effectif</button>
+    </nav>
+
+    <main class="app-main">
+      <section class="view is-active" data-view="live" aria-labelledby="liveTitle">
+        <h1 class="sr-only" id="liveTitle">Match de l’Olympique de Marseille</h1>
+        <div class="live-layout">
+          <article class="hero" id="hero" data-status="UNAVAILABLE" aria-live="polite">
+            <div class="hero__texture" aria-hidden="true"></div>
+            <header class="hero__header">
+              <span class="competition" id="competition">Olympique de Marseille</span>
+              <time id="kickoff">Horaire à confirmer</time>
+            </header>
+            <div class="matchup">
+              <article class="team team--home" id="homeTeam">
+                <div class="team__visual">
+                  <img class="team__logo" id="homeLogo" alt="" hidden>
+                  <span class="team__fallback" id="homeFallback">OM</span>
+                </div>
+                <span class="team__code" id="homeCode">OM</span>
+                <strong class="team__name" id="homeName">Marseille</strong>
+              </article>
+              <div class="scoreboard">
+                <span class="match-status" id="matchStatus">EN ATTENTE</span>
+                <strong class="score" id="score">—</strong>
+                <span class="minute" id="minute"></span>
+              </div>
+              <article class="team team--away" id="awayTeam">
+                <div class="team__visual">
+                  <img class="team__logo" id="awayLogo" alt="" hidden>
+                  <span class="team__fallback" id="awayFallback">---</span>
+                </div>
+                <span class="team__code" id="awayCode">---</span>
+                <strong class="team__name" id="awayName">À confirmer</strong>
+              </article>
+            </div>
+            <footer class="hero__footer">
+              <div>
+                <small>Stade</small>
+                <strong id="stadium">À confirmer</strong>
+              </div>
+              <div>
+                <small>Dernier événement</small>
+                <strong id="currentEvent">Aucune action confirmée</strong>
+              </div>
+              <a class="source-link" id="matchSource" href="#" target="_blank" rel="noreferrer" hidden>Source</a>
+            </footer>
+          </article>
+
+          <aside class="surface timeline-panel" aria-labelledby="timelineTitle">
+            <header class="surface__header">
+              <div>
+                <p class="eyebrow">Fil du match</p>
+                <h2 id="timelineTitle">Commentaires live</h2>
+              </div>
+              <span class="live-indicator" id="timelineIndicator">Veille</span>
+            </header>
+            <div class="timeline" id="timeline"></div>
+          </aside>
+        </div>
+
+        <div class="live-secondary">
+          <section class="surface pitch-panel" aria-labelledby="pitchTitle">
+            <header class="surface__header">
+              <div>
+                <p class="eyebrow">Zone live</p>
+                <h2 id="pitchTitle">Mini-stade</h2>
+              </div>
+              <span class="data-tag" id="pitchSource">Position vérifiée</span>
+            </header>
+            <div class="pitch" id="pitch">
+              <svg viewBox="0 0 100 64" class="pitch__lines" aria-hidden="true">
+                <rect x="2" y="2" width="96" height="60" rx="2"></rect>
+                <line x1="50" y1="2" x2="50" y2="62"></line>
+                <circle cx="50" cy="32" r="9"></circle>
+                <circle cx="50" cy="32" r="0.7" class="pitch__mark"></circle>
+                <rect x="2" y="17" width="16" height="30"></rect>
+                <rect x="82" y="17" width="16" height="30"></rect>
+                <rect x="2" y="24" width="7" height="16"></rect>
+                <rect x="91" y="24" width="7" height="16"></rect>
+                <polyline id="ballPath" points="" class="ball-path"></polyline>
+              </svg>
+              <div class="pitch__players" id="playersLayer"></div>
+              <div class="ball" id="ball" hidden aria-label="Ballon">●</div>
+              <div class="pitch__fallback" id="pitchFallback">
+                <strong>Télémétrie indisponible</strong>
+                <span>Aucune position n’est affichée sans donnée confirmée.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="surface source-panel" aria-labelledby="sourceTitle">
+            <header class="surface__header">
+              <div>
+                <p class="eyebrow">État serveur</p>
+                <h2 id="sourceTitle">Sources</h2>
+              </div>
+              <time id="lastUpdated">—</time>
+            </header>
+            <div class="source-list" id="sourceList"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" data-view="news" aria-labelledby="newsTitle" hidden>
+        <header class="page-heading">
+          <div><p class="eyebrow">Olympique de Marseille</p><h1 id="newsTitle">Actualités</h1></div>
+          <span id="newsCount">0 article</span>
+        </header>
+        <div class="content-grid" id="news"></div>
+      </section>
+
+      <section class="view" data-view="transfers" aria-labelledby="transferTitle" hidden>
+        <header class="page-heading">
+          <div><p class="eyebrow">Informations sourcées</p><h1 id="transferTitle">Mercato</h1></div>
+          <span id="transferCount">0 information</span>
+        </header>
+        <div class="transfer-legend" aria-label="Légende mercato">
+          <span data-kind="OFFICIEL">Officiel</span>
+          <span data-kind="RUMEUR">Rumeur</span>
+          <span data-kind="SURVEILLE">Surveillé</span>
+        </div>
+        <div class="content-grid" id="transfers"></div>
+      </section>
+
+      <section class="view" data-view="calendar" aria-labelledby="calendarTitle" hidden>
+        <header class="page-heading">
+          <div><p class="eyebrow">Toutes compétitions</p><h1 id="calendarTitle">Calendrier OM</h1></div>
+          <span id="fixtureCount">0 match</span>
+        </header>
+        <div class="calendar-layout">
+          <section class="surface list-surface"><h2>À venir</h2><div class="match-list" id="fixtures"></div></section>
+          <section class="surface list-surface"><h2>Résultats</h2><div class="match-list" id="results"></div></section>
+        </div>
+      </section>
+
+      <section class="view" data-view="standings" aria-labelledby="standingsTitle" hidden>
+        <header class="page-heading">
+          <div><p class="eyebrow">Ligue 1</p><h1 id="standingsTitle">Classement</h1></div>
+          <span id="standingSeason">Saison en cours</span>
+        </header>
+        <div class="surface table-surface">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>#</th><th>Club</th><th>MJ</th><th>G</th><th>N</th><th>P</th><th>Diff.</th><th>Pts</th></tr></thead>
+              <tbody id="standings"></tbody>
+            </table>
+          </div>
+          <div id="standingsEmpty"></div>
+        </div>
+      </section>
+
+      <section class="view" data-view="squad" aria-labelledby="squadTitle" hidden>
+        <header class="page-heading">
+          <div><p class="eyebrow">Équipe première</p><h1 id="squadTitle">Effectif</h1></div>
+          <span id="squadCount">0 joueur</span>
+        </header>
+        <div class="squad-grid" id="squad"></div>
+      </section>
+    </main>
+
+    <div class="loading" id="loading" role="status"><span></span><span>Chargement des données OM</span></div>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="./app.js?v=om-live-v1" defer></script>
+  </body>
+</html>

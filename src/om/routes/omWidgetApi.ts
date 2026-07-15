@@ -1,6 +1,102 @@
 import type { Request, Response } from 'express';
-import { getOmLiveMatch } from '../adapters/live';
-import { getOmNews } from '../adapters/news';
-import { getOmTransfers } from '../adapters/transfers';
-let cache:{expires:number;data:unknown}|null=null;
-export async function omWidgetApi(_req:Request,res:Response){const now=Date.now();if(cache&&cache.expires>now){res.setHeader('x-cache','HIT');return res.json(cache.data);}const [hero,news,transfers]=await Promise.all([getOmLiveMatch(),getOmNews(),getOmTransfers()]);const data={hero,news,transfers,fixtures:[],generatedAt:new Date().toISOString()};cache={expires:now+60_000,data};res.setHeader('x-cache','MISS');return res.json(data);}
+import { getOmSports, type OmSportsBundle } from '../adapters/live.js';
+import { getOmNews } from '../adapters/news.js';
+import { getOmTransfers } from '../adapters/transfers.js';
+import type { OmNewsItem, OmTransferItem, OmWidgetPayload, SourceState } from '../types/om.js';
+
+const emptySource = (name: string, message: string): SourceState => ({
+  name,
+  status: 'ERROR',
+  cache: 'EMPTY',
+  items: 0,
+  checkedAt: new Date().toISOString(),
+  message,
+});
+
+const emptySports = (): OmSportsBundle => ({
+  hero: {
+    id: 'om-source-unavailable',
+    status: 'UNAVAILABLE',
+    competition: 'Olympique de Marseille',
+    kickoff: new Date().toISOString(),
+    home: { code: 'OM', name: 'Olympique de Marseille', shortName: 'Marseille' },
+    away: { code: '---', name: 'Adversaire a confirmer', shortName: 'A confirmer' },
+    event: 'Source sportive temporairement indisponible',
+    source: 'Derniere donnee indisponible',
+    verified: false,
+  },
+  pitch: {
+    available: false,
+    message: 'Aucune position vérifiée disponible',
+    players: [],
+  },
+  timeline: [],
+  fixtures: [],
+  results: [],
+  standings: [],
+  squad: [],
+  source: emptySource('ESPN Football Data', 'Source sportive temporairement indisponible'),
+});
+
+const failedReason = (reason: unknown): string => {
+  if (reason instanceof Error && reason.message) return reason.message;
+  return 'Source temporairement indisponible';
+};
+
+export async function omWidgetApi(_req: Request, res: Response): Promise<Response> {
+  const [sportsResult, newsResult, transferResult] = await Promise.allSettled([
+    getOmSports(),
+    getOmNews(),
+    getOmTransfers(),
+  ]);
+
+  const sports = sportsResult.status === 'fulfilled' ? sportsResult.value : emptySports();
+  const news: OmNewsItem[] = newsResult.status === 'fulfilled' ? newsResult.value.items : [];
+  const transfers: OmTransferItem[] = transferResult.status === 'fulfilled' ? transferResult.value.items : [];
+  const sources: SourceState[] = [
+    sports.source,
+    newsResult.status === 'fulfilled'
+      ? newsResult.value.source
+      : emptySource('Flux RSS actualites', failedReason(newsResult.reason)),
+    transferResult.status === 'fulfilled'
+      ? transferResult.value.source
+      : emptySource('Flux RSS mercato', failedReason(transferResult.reason)),
+  ];
+  const payload: OmWidgetPayload = {
+    service: 'om-live-center',
+    version: '1.0.0',
+    generatedAt: new Date().toISOString(),
+    hero: sports.hero,
+    pitch: sports.pitch,
+    timeline: sports.timeline,
+    news,
+    transfers,
+    fixtures: sports.fixtures,
+    results: sports.results,
+    standings: sports.standings,
+    squad: sports.squad,
+    sources,
+    refreshAfterSeconds:
+      sports.hero.status === 'LIVE' || sports.hero.status === 'HALF_TIME' ? 30 : 60,
+  };
+  const cache = sources.some((source) => source.cache === 'STALE')
+    ? 'STALE'
+    : sources.some((source) => source.cache === 'MISS')
+      ? 'MISS'
+      : sources.every((source) => source.cache === 'HIT')
+        ? 'HIT'
+        : 'MIXED';
+
+  res.setHeader('x-cache', cache);
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=30, stale-if-error=600');
+  return res.status(200).json(payload);
+}
+
+export async function omHealthApi(_req: Request, res: Response): Promise<Response> {
+  return res.status(200).json({
+    status: 'ok',
+    service: 'om-live-center',
+    version: '1.0.0',
+    time: new Date().toISOString(),
+  });
+}
