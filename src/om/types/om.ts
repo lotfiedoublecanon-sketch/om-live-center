@@ -121,12 +121,15 @@ export interface OmSquadMember {
   id: string;
   name: string;
   shortName: string;
-  number?: string;
-  position: string;
-  nationality?: string;
+  number: string | null;
+  position: 'Gardien' | 'Défenseur' | 'Milieu' | 'Attaquant';
+  nationality: string | null;
+  photo: string | null;
   image?: string;
-  status: string;
+  status: string | null;
   injuries: string[];
+  source: string;
+  updatedAt: string;
 }
 
 export interface SourceState {

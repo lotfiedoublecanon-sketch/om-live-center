@@ -36,6 +36,7 @@ const emptySports = (): OmSportsBundle => ({
   standings: [],
   squad: [],
   source: emptySource('ESPN Football Data', 'Source sportive temporairement indisponible'),
+  squadSource: emptySource('OM.FR - Équipe première', 'Effectif temporairement indisponible'),
 });
 
 const failedReason = (reason: unknown): string => {
@@ -55,6 +56,7 @@ export async function omWidgetApi(_req: Request, res: Response): Promise<Respons
   const transfers: OmTransferItem[] = transferResult.status === 'fulfilled' ? transferResult.value.items : [];
   const sources: SourceState[] = [
     sports.source,
+    sports.squadSource,
     newsResult.status === 'fulfilled'
       ? newsResult.value.source
       : emptySource('Flux RSS actualites', failedReason(newsResult.reason)),

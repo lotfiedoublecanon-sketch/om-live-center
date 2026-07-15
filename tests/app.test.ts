@@ -28,4 +28,10 @@ describe('OM Live Center server', () => {
     expect(response.status).toBe(400);
     expect(response.body.message).toBe('Identifiant equipe invalide');
   });
+
+  it('rejects arbitrary player-photo proxy targets', async () => {
+    const response = await request(app).get('/api/om/player-photo/not%20a%20player');
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Identifiant joueur invalide');
+  });
 });

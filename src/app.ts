@@ -2,10 +2,12 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { omHealthApi, omWidgetApi } from './om/routes/omWidgetApi.js';
+import { getSquadPhotoOrigin } from './om/services/squad.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(currentDir, '..', 'web-widget');
 const logoCache = new Map<string, { body: Buffer; contentType: string; expiresAt: number }>();
+const playerPhotoCache = new Map<string, { body: Buffer; contentType: string; expiresAt: number }>();
 
 export function createApp() {
   const app = express();
@@ -47,6 +49,34 @@ export function createApp() {
       logoCache.set(teamId, { body, contentType, expiresAt: Date.now() + 86_400_000 });
       res.setHeader('Content-Type', contentType);
       res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+      return res.status(200).send(body);
+    } catch {
+      return res.status(503).end();
+    }
+  });
+
+  app.get('/api/om/player-photo/:playerId', async (req, res) => {
+    const playerId = req.params.playerId;
+    if (!/^[a-z0-9-]{1,80}$/.test(playerId)) {
+      return res.status(400).json({ status: 'error', message: 'Identifiant joueur invalide' });
+    }
+    const cached = playerPhotoCache.get(playerId);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.setHeader('Content-Type', cached.contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      return res.status(200).send(cached.body);
+    }
+    try {
+      const origin = await getSquadPhotoOrigin(playerId);
+      if (!origin) return res.status(404).end();
+      const upstream = await fetch(origin, { signal: AbortSignal.timeout(8_000) });
+      const contentType = upstream.headers.get('content-type') || '';
+      if (!upstream.ok || !contentType.startsWith('image/')) return res.status(502).end();
+      const body = Buffer.from(await upstream.arrayBuffer());
+      if (!body.length || body.length > 4_000_000) return res.status(502).end();
+      playerPhotoCache.set(playerId, { body, contentType, expiresAt: Date.now() + 86_400_000 });
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
       return res.status(200).send(body);
     } catch {
       return res.status(503).end();

@@ -329,28 +329,59 @@ function renderSquad(items) {
   const container = $('#squad');
   const squad = array(items);
   $('#squadCount').textContent = `${squad.length} joueur${squad.length > 1 ? 's' : ''}`;
+  const latestUpdate = squad
+    .map((player) => new Date(player.updatedAt))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((left, right) => right.getTime() - left.getTime())[0];
+  $('#squadUpdatedAt').textContent = latestUpdate
+    ? `Mis à jour le ${latestUpdate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}`
+    : 'Mise à jour inconnue';
   if (!squad.length) {
     emptyState(container, 'Effectif indisponible', 'Les joueurs seront affichés dès que la source sportive les publiera.');
     return;
   }
   clear(container);
-  squad.forEach((player) => {
-    const card = node('article', 'player-card');
-    const visual = node('div', 'player-card__visual', player.number || 'OM');
-    const imageUrl = safeHttpUrl(player.image);
-    if (imageUrl) {
-      const image = node('img');
-      image.src = imageUrl;
-      image.alt = '';
-      image.loading = 'lazy';
-      image.onerror = () => image.remove();
-      visual.replaceChildren(image);
-    }
-    const copy = node('div', 'player-card__copy');
-    copy.append(node('strong', '', player.name || 'Joueur'), node('small', '', `${player.position || 'Poste non renseigné'}${player.nationality ? ` · ${player.nationality}` : ''}`));
-    if (array(player.injuries).length) copy.append(node('small', 'injury', player.injuries.join(' · ')));
-    card.append(visual, copy);
-    container.append(card);
+  const groups = [
+    ['Gardien', 'Gardiens'],
+    ['Défenseur', 'Défenseurs'],
+    ['Milieu', 'Milieux'],
+    ['Attaquant', 'Attaquants'],
+  ];
+  groups.forEach(([position, title]) => {
+    const players = squad.filter((player) => player.position === position);
+    if (!players.length) return;
+    const section = node('section', 'squad-group');
+    const header = node('header', 'squad-group__header');
+    header.append(node('h2', '', title), node('span', '', String(players.length)));
+    const grid = node('div', 'squad-grid');
+    players.forEach((player) => {
+      const name = player.name || 'Joueur';
+      const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'OM';
+      const card = node('article', 'player-card');
+      const visual = node('div', 'player-card__visual');
+      visual.append(node('span', 'player-card__initials', initials));
+      const imageUrl = safeHttpUrl(player.photo || player.image);
+      if (imageUrl) {
+        const image = node('img');
+        image.src = imageUrl;
+        image.alt = `Portrait de ${name}`;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.onerror = () => image.remove();
+        visual.append(image);
+      }
+      if (player.number) visual.append(node('span', 'player-card__number', String(player.number)));
+      const copy = node('div', 'player-card__copy');
+      copy.append(node('strong', '', name));
+      copy.append(node('small', 'player-card__position', `${player.position || 'Poste non renseigné'}${player.nationality ? ` · ${player.nationality}` : ''}`));
+      if (player.status) copy.append(node('small', 'player-card__status', player.status));
+      if (array(player.injuries).length) copy.append(node('small', 'injury', player.injuries.join(' · ')));
+      copy.append(node('small', 'player-card__source', player.source || 'Source non renseignée'));
+      card.append(visual, copy);
+      grid.append(card);
+    });
+    section.append(header, grid);
+    container.append(section);
   });
 }
 

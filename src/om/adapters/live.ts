@@ -1,6 +1,7 @@
 import { OM_CONFIG } from '../config.js';
 import { omCache } from '../cache/stale-cache.js';
 import { fetchJson, safeUrl } from '../services/http.js';
+import { getOmSquad } from '../services/squad.js';
 import type {
   CacheState,
   MatchStatus,
@@ -110,20 +111,6 @@ interface EspnStandings {
   }>;
 }
 
-interface EspnRoster {
-  athletes?: Array<{
-    id?: string;
-    displayName?: string;
-    shortName?: string;
-    jersey?: string;
-    citizenship?: string;
-    position?: { displayName?: string; name?: string };
-    headshot?: { href?: string };
-    status?: { name?: string; type?: string };
-    injuries?: Array<{ status?: string; detail?: string; type?: string }>;
-  }>;
-}
-
 export interface OmSportsBundle {
   hero: OmMatch;
   pitch: OmPitch;
@@ -133,6 +120,7 @@ export interface OmSportsBundle {
   standings: OmStandingRow[];
   squad: OmSquadMember[];
   source: SourceState;
+  squadSource: SourceState;
 }
 
 const isoDay = (date: Date): string => date.toISOString().slice(0, 10).replaceAll('-', '');
@@ -306,30 +294,6 @@ async function getStandings() {
   return result;
 }
 
-async function getSquad() {
-  const result = await omCache.get('espn:roster:fra.1', OM_CONFIG.sportsCacheMs, async () => {
-    const payload = await fetchJson<EspnRoster>(
-      `${OM_CONFIG.espnBaseUrl}/fra.1/teams/${encodeURIComponent(OM_CONFIG.teamId)}/roster?limit=100`,
-    );
-    return (payload.athletes || []).map(
-      (athlete, index): OmSquadMember => ({
-        id: athlete.id || `player-${index}`,
-        name: athlete.displayName || athlete.shortName || 'Joueur',
-        shortName: athlete.shortName || athlete.displayName || 'Joueur',
-        number: athlete.jersey || undefined,
-        position: athlete.position?.displayName || athlete.position?.name || 'Non renseigne',
-        nationality: athlete.citizenship || undefined,
-        image: safeUrl(athlete.headshot?.href),
-        status: athlete.status?.name || athlete.status?.type || 'Actif',
-        injuries: (athlete.injuries || [])
-          .map((injury) => injury.detail || injury.status || injury.type || '')
-          .filter(Boolean),
-      }),
-    );
-  });
-  return result;
-}
-
 function detailType(detail: EspnDetail): TimelineEventType {
   if (detail.scoringPlay) return 'goal';
   if (detail.redCard) return 'red-card';
@@ -412,7 +376,7 @@ export async function getOmSports(): Promise<OmSportsBundle> {
     eventsForAllCompetitions(currentWindow(), OM_CONFIG.liveCacheMs),
     eventsForAllCompetitions(currentSeasonWindow(), OM_CONFIG.sportsCacheMs),
     getStandings().catch(() => null),
-    getSquad().catch(() => null),
+    getOmSquad().catch(() => null),
   ]);
 
   const allById = new Map<string, OmMatch>();
@@ -442,7 +406,6 @@ export async function getOmSports(): Promise<OmSportsBundle> {
     liveWindow.cache,
     season.cache,
     standingsResult?.cache || 'EMPTY',
-    squadResult?.cache || 'EMPTY',
   ]);
   const hasStale = combinedCache === 'STALE';
   const sourceErrors = liveWindow.errors + season.errors;
@@ -465,14 +428,22 @@ export async function getOmSports(): Promise<OmSportsBundle> {
     squad,
     source: {
       name: 'ESPN Football Data',
-      status: hasStale ? 'STALE' : all.length || standings.length || squad.length ? 'OK' : 'EMPTY',
+      status: hasStale ? 'STALE' : all.length || standings.length ? 'OK' : 'EMPTY',
       cache: combinedCache,
-      items: all.length + standings.length + squad.length,
-      checkedAt: [liveWindow.updatedAt, season.updatedAt, standingsResult?.updatedAt, squadResult?.updatedAt]
+      items: all.length + standings.length,
+      checkedAt: [liveWindow.updatedAt, season.updatedAt, standingsResult?.updatedAt]
         .filter((value): value is string => Boolean(value))
         .sort()
         .at(-1) || new Date().toISOString(),
       message: sourceErrors ? `${sourceErrors} competition(s) indisponible(s), autres sources conservees` : undefined,
+    },
+    squadSource: {
+      name: squadResult?.source || 'OM.FR - Équipe première',
+      status: squadResult ? (squadResult.cache === 'STALE' ? 'STALE' : 'OK') : 'ERROR',
+      cache: squadResult?.cache || 'EMPTY',
+      items: squad.length,
+      checkedAt: squadResult?.updatedAt || new Date().toISOString(),
+      message: squadResult?.fallback ? 'Dernier instantané officiel vérifié utilisé' : undefined,
     },
   };
 }

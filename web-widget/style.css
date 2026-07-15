@@ -356,7 +356,7 @@ a { color: inherit; }
 .page-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin: 14px 0 18px; }
 .page-heading h1 { font-size: 32px; }
 .page-heading > span { color: var(--muted); font-weight: 800; }
-.content-grid, .squad-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.content-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 
 .content-card {
   display: grid;
@@ -409,13 +409,25 @@ tr.is-om { background: rgba(0,169,232,0.12); }
 .standing-team { display: flex; align-items: center; gap: 9px; min-width: 170px; }
 .standing-team img { width: 28px; height: 28px; object-fit: contain; }
 
-.squad-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.player-card { display: grid; grid-template-columns: 58px 1fr; gap: 12px; min-height: 88px; padding: 14px; border: 1px solid var(--stroke); border-radius: 8px; background: #0a1933; }
-.player-card__visual { display: grid; place-items: center; width: 58px; height: 58px; overflow: hidden; border-radius: 7px; color: var(--om-navy); background: #e9faff; font-weight: 1000; }
-.player-card__visual img { width: 100%; height: 100%; object-fit: cover; }
-.player-card__copy { display: grid; align-content: center; gap: 3px; min-width: 0; }
-.player-card__copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-card__copy small { color: var(--muted); }
+.squad-meta { display: grid; justify-items: end; gap: 3px; color: var(--muted); font-size: 13px; }
+.squad-meta span { color: var(--text); font-weight: 900; }
+.squad-groups { display: grid; gap: 24px; }
+.squad-group { display: grid; gap: 10px; min-width: 0; }
+.squad-group__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 4px; }
+.squad-group__header h2 { margin: 0; font-size: 20px; }
+.squad-group__header span { display: grid; place-items: center; min-width: 30px; height: 26px; border: 1px solid var(--stroke); border-radius: 6px; color: var(--om-cyan); font-size: 12px; font-weight: 900; }
+.squad-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.player-card { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 13px; min-height: 132px; padding: 12px; overflow: hidden; border: 1px solid var(--stroke); border-radius: 8px; background: #0a1933; }
+.player-card__visual { position: relative; display: grid; place-items: center; width: 88px; height: 108px; overflow: hidden; border-radius: 7px; color: var(--om-navy); background: linear-gradient(160deg, #e9faff, #9bdcf5); font-weight: 1000; }
+.player-card__visual img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.player-card__initials { font-size: 21px; letter-spacing: 0; }
+.player-card__number { position: absolute; right: 5px; bottom: 5px; z-index: 2; display: grid; place-items: center; min-width: 25px; height: 25px; padding: 0 5px; border-radius: 5px; color: #031027; background: var(--om-gold); box-shadow: 0 3px 12px rgba(0,0,0,.35); font-size: 12px; font-weight: 1000; }
+.player-card__copy { display: grid; align-content: center; gap: 5px; min-width: 0; }
+.player-card__copy strong { overflow-wrap: anywhere; line-height: 1.15; }
+.player-card__copy small { color: var(--muted); line-height: 1.25; }
+.player-card__position { color: #dceaff !important; }
+.player-card__status { color: var(--warning) !important; }
+.player-card__source { overflow: hidden; color: var(--om-cyan) !important; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .injury { color: var(--warning) !important; }
 
 .loading { position: fixed; inset: auto 16px 18px auto; z-index: 100; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--stroke); border-radius: 8px; background: #07152e; box-shadow: var(--shadow); font-size: 13px; font-weight: 800; }
@@ -461,6 +473,9 @@ tr.is-om { background: rgba(0,169,232,0.12); }
   .live-secondary { margin-top: 8px; gap: 8px; }
   .pitch { margin: 0 8px; aspect-ratio: 1.42; }
   .content-grid, .squad-grid, .calendar-layout { grid-template-columns: 1fr; }
+  .squad-meta { justify-items: start; }
+  .player-card { grid-template-columns: 82px minmax(0, 1fr); min-height: 122px; }
+  .player-card__visual { width: 82px; height: 98px; }
   .page-heading { margin: 12px 4px 14px; }
   .page-heading h1 { font-size: 27px; }
   .content-card { min-height: 152px; }
