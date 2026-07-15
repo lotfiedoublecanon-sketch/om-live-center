@@ -39,6 +39,7 @@ function dateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Horaire à confirmer';
   return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris',
     weekday: 'short',
     day: 'numeric',
     month: 'short',
