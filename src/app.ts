@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { omHealthApi, omWidgetApi } from './om/routes/omWidgetApi.js';
@@ -12,6 +13,7 @@ const playerPhotoCache = new Map<string, { body: Buffer; contentType: string; ex
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  app.use(compression());
   app.use(express.json({ limit: '16kb' }));
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -87,7 +89,18 @@ export function createApp() {
     res.setHeader('Cache-Control', 'no-cache');
     next();
   });
-  app.use('/om', express.static(webRoot, { maxAge: '1h', index: 'index.html' }));
+  app.use('/om', express.static(webRoot, {
+    maxAge: '1h',
+    index: 'index.html',
+    setHeaders: (res, filePath) => {
+      const name = path.basename(filePath);
+      if (name === 'index.html' || name === 'manifest.json') {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.includes(`${path.sep}assets${path.sep}`) && /-[A-Za-z0-9_-]{8,}\.(?:js|css)$/.test(name)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  }));
   app.get(/^\/om(?:\/.*)?$/, (_req, res) => res.sendFile(path.join(webRoot, 'index.html')));
   app.get('/', (_req, res) => res.redirect(302, '/om/'));
 

@@ -1,0 +1,39 @@
+{
+  "service": "om-live-center",
+  "version": "1.0.0",
+  "generatedAt": "2026-07-15T00:00:00.000Z",
+  "hero": {
+    "id": "offline",
+    "status": "UNAVAILABLE",
+    "competition": "Olympique de Marseille",
+    "kickoff": "2026-07-15T00:00:00.000Z",
+    "home": { "code": "OM", "name": "Olympique de Marseille", "shortName": "Marseille" },
+    "away": { "code": "---", "name": "Adversaire a confirmer", "shortName": "A confirmer" },
+    "event": "Connexion au serveur requise pour afficher des donnees confirmees",
+    "source": "Mode hors ligne",
+    "verified": false
+  },
+  "pitch": {
+    "available": false,
+    "message": "Aucune position verifiee disponible hors ligne",
+    "players": []
+  },
+  "timeline": [],
+  "news": [],
+  "transfers": [],
+  "fixtures": [],
+  "results": [],
+  "standings": [],
+  "squad": [],
+  "sources": [
+    {
+      "name": "Serveur OM Live Center",
+      "status": "ERROR",
+      "cache": "EMPTY",
+      "items": 0,
+      "checkedAt": "2026-07-15T00:00:00.000Z",
+      "message": "Connexion indisponible"
+    }
+  ],
+  "refreshAfterSeconds": 60
+}
