@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { getOmSports, type OmSportsBundle } from '../adapters/live.js';
 import { getOmNews } from '../adapters/news.js';
 import { getOmTransfers } from '../adapters/transfers.js';
+import { getOmSquadSnapshot } from '../services/squad.js';
 import type { OmNewsItem, OmTransferItem, OmWidgetPayload, SourceState } from '../types/om.js';
 
 const emptySource = (name: string, message: string): SourceState => ({
@@ -13,7 +14,9 @@ const emptySource = (name: string, message: string): SourceState => ({
   message,
 });
 
-const emptySports = (): OmSportsBundle => ({
+const emptySports = (): OmSportsBundle => {
+  const squad = getOmSquadSnapshot();
+  return ({
   hero: {
     id: 'om-source-unavailable',
     live: false,
@@ -38,11 +41,30 @@ const emptySports = (): OmSportsBundle => ({
   fixtures: [],
   results: [],
   standings: [],
-  squad: [],
+  squad: squad.value,
   source: emptySource('ESPN Football Data', 'Source sportive temporairement indisponible'),
   friendliesSource: emptySource('OM.FR officiel + ESPN Club Friendly', 'Calendrier amical temporairement indisponible'),
-  squadSource: emptySource('OM.FR - Équipe première', 'Effectif temporairement indisponible'),
-});
+  squadSource: {
+    name: squad.source,
+    status: squad.fallback ? 'STALE' : 'OK',
+    cache: squad.cache,
+    items: squad.value.length,
+    checkedAt: squad.updatedAt,
+    message: squad.fallback ? 'Dernier instantané officiel vérifié utilisé' : undefined,
+  },
+  });
+};
+
+function withinDeadline<T>(promise: Promise<T>, label: string, timeoutMs = 7_500): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} indisponible après ${timeoutMs} ms`)), timeoutMs);
+    timer.unref();
+  });
+  return Promise.race([promise, deadline]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
 
 export function refreshAfterSecondsForMatch(
   match: OmSportsBundle['hero'],
@@ -69,9 +91,9 @@ const failedReason = (reason: unknown): string => {
 
 export async function omWidgetApi(_req: Request, res: Response): Promise<Response> {
   const [sportsResult, newsResult, transferResult] = await Promise.allSettled([
-    getOmSports(),
-    getOmNews(),
-    getOmTransfers(),
+    withinDeadline(getOmSports(), 'Données sportives'),
+    withinDeadline(getOmNews(), 'Actualités'),
+    withinDeadline(getOmTransfers(), 'Mercato'),
   ]);
 
   const sports = sportsResult.status === 'fulfilled' ? sportsResult.value : emptySports();
