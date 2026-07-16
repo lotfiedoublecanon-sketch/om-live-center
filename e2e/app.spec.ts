@@ -18,6 +18,15 @@ test('navigates all primary views without document reload', async ({ page }) => 
   }
 });
 
+test('supports keyboard navigation between tabs', async ({ page }) => {
+  const live = page.getByRole('tab', { name: 'Live', exact: true });
+  await live.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Actus', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('End');
+  await expect(page.getByRole('tab', { name: 'Effectif', exact: true })).toHaveAttribute('aria-selected', 'true');
+});
+
 test('shows confirmed friendly, squad photos and sourced content', async ({ page }) => {
   await expect(page.locator('.match-hero')).toContainText(/Match amical/i);
   await page.getByRole('tab', { name: 'Effectif' }).click();

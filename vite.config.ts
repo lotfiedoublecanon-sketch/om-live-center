@@ -14,10 +14,5 @@ export default defineConfig({
     sourcemap: false,
     target: 'es2022',
     cssCodeSplit: true,
-    rollupOptions: {
-      output: {
-        manualChunks: { radix: ['@radix-ui/react-tabs'] },
-      },
-    },
   },
 });
